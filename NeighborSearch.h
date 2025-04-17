@@ -145,7 +145,7 @@ public:
 				for (Integer xi = minCoord[0]; xi <= maxCoord[0]; ++xi) {
 					for (Integer yi = minCoord[1]; yi <= maxCoord[1]; ++yi) {
 						for (Integer zi = minCoord[2]; zi <= maxCoord[2]; ++zi) {
-							Integer slot = Hash(Vector3i(xi, yi, zi));
+							Integer slot = ((((p1 * xi) ^ (p2 * yi) ^ (p3 * zi)) % m_size) + m_size) % m_size;
 
 							#pragma omp critical
 							m_hashNeighbor[slot].push_back(pi);

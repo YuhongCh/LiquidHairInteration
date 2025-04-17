@@ -30,6 +30,7 @@ void LiquidModel<2>::Init() {
 	m_ps.SpawnParticles(m_grid.minCoord + offset, m_grid.maxCoord - offset);
 }
 
+template <>
 void LiquidModel<2>::PreStep(const Scalar& dt) {
 	m_grid.Clear();
 	ComputeLiquidPhi();
@@ -72,7 +73,7 @@ void LiquidModel<2>::ComputeLiquidPhi() {
 
 				#pragma omp critical
 				{
-					m_grid.liquidPhi[xi][yi] = min(m_grid.liquidPhi[xi][yi], phi);
+					m_grid.liquidPhi(xi, yi) = min(m_grid.liquidPhi(xi, yi), phi);
 				}
 			}
 		}
@@ -86,21 +87,21 @@ void LiquidModel<2>::ComputeSolidPhi() {
 	for (Integer xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
 			Vector2 cellPos = Vector2(xi, yi).cwiseProduct(m_grid.dx) + m_grid.minCoord;
-			m_grid.solidPhi[xi][yi] = m_boundary->Compute(cellPos);
+			m_grid.solidPhi(xi, yi) = m_boundary->Compute(cellPos);
 		}
 	}
 
 	for (Integer xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-			m_grid.liquidWx[xi][yi] = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi[xi][yi + 1], m_grid.solidPhi[xi][yi]);
-			m_grid.liquidWx[xi][yi] = MathUtils::Clamp(m_grid.liquidWx[xi][yi], 0.0, 1.0);
+			m_grid.liquidWx(xi, yi) = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi(xi, yi + 1), m_grid.solidPhi(xi, yi));
+			m_grid.liquidWx(xi, yi) = MathUtils::Clamp(m_grid.liquidWx(xi, yi), 0.0, 1.0);
 		}
 	}
 
 	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
-			m_grid.liquidWy[xi][yi] = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi[xi + 1][yi], m_grid.solidPhi[xi][yi]);
-			m_grid.liquidWy[xi][yi] = MathUtils::Clamp(m_grid.liquidWy[xi][yi], 0.0, 1.0);
+			m_grid.liquidWy(xi, yi) = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi(xi + 1, yi), m_grid.solidPhi(xi, yi));
+			m_grid.liquidWy(xi, yi) = MathUtils::Clamp(m_grid.liquidWy(xi, yi), 0.0, 1.0);
 		}
 	}
 }
@@ -127,10 +128,10 @@ void LiquidModel<2>::Particle2Grid() {
 				Vector2 dpos = particle.position - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
 
 				#pragma omp atomic
-				m_grid.wx[xi][yi] += weight;
+				m_grid.wx(xi, yi) += weight;
 
 				#pragma omp atomic
-				m_grid.vx[xi][yi] += weight * (particle.velocity[0] + particle.affineMatrix.col(0).dot(dpos));
+				m_grid.vx(xi, yi) += weight * (particle.velocity[0] + particle.affineMatrix.col(0).dot(dpos));
 				
 			}
 		}
@@ -146,23 +147,23 @@ void LiquidModel<2>::Particle2Grid() {
 				Vector2 dpos = particle.position - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
 
 				#pragma omp atomic
-				m_grid.wy[xi][yi] += weight;
+				m_grid.wy(xi, yi) += weight;
 
 				#pragma omp atomic
-				m_grid.vy[xi][yi] += weight * (particle.velocity[1] + particle.affineMatrix.col(1).dot(dpos));
+				m_grid.vy(xi, yi) += weight * (particle.velocity[1] + particle.affineMatrix.col(1).dot(dpos));
 			}
 		}
 	}
 
 	for (Integer xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-			m_grid.vx[xi][yi] = !MathUtils::IsSmall(m_grid.wx[xi][yi]) ? m_grid.vx[xi][yi] / m_grid.wx[xi][yi] : 0.0;
+			m_grid.vx(xi, yi) = !MathUtils::IsSmall(m_grid.wx(xi, yi)) ? m_grid.vx(xi, yi) / m_grid.wx(xi, yi) : 0.0;
 		}
 	}
 
 	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
-			m_grid.vy[xi][yi] = !MathUtils::IsSmall(m_grid.wy[xi][yi]) ? m_grid.vy[xi][yi] / m_grid.wy[xi][yi] : 0.0;
+			m_grid.vy(xi, yi) = !MathUtils::IsSmall(m_grid.wy(xi, yi)) ? m_grid.vy(xi, yi) / m_grid.wy(xi, yi) : 0.0;
 		}
 	}
 }
@@ -197,8 +198,8 @@ void LiquidModel<2>::Grid2Particle() {
 				Scalar weight = weightX * weightY;
 				Vector2 gradWeight(weightY * gradWeightX, weightX * gradWeightY);
 
-				velX += m_grid.vx[xi][yi] * weight;
-				affineMatrix.col(0) += m_grid.vx[xi][yi] * gradWeight;
+				velX += m_grid.vx(xi, yi) * weight;
+				affineMatrix.col(0) += m_grid.vx(xi, yi) * gradWeight;
 			}
 		}
 
@@ -216,8 +217,8 @@ void LiquidModel<2>::Grid2Particle() {
 				Scalar weight = weightX * weightY;
 				Vector2 gradWeight(weightY * gradWeightX, weightX * gradWeightY);
 
-				velY += m_grid.vy[xi][yi] * weight;
-				affineMatrix.col(1) += m_grid.vy[xi][yi] * gradWeight;
+				velY += m_grid.vy(xi, yi) * weight;
+				affineMatrix.col(1) += m_grid.vy(xi, yi) * gradWeight;
 			}
 		}
 
@@ -236,38 +237,38 @@ void LiquidModel<2>::SolvePressure(const Scalar& dt) {
 	#pragma omp parallel for
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
-			Scalar centerPhi = m_grid.liquidPhi[xi][yi];
+			Scalar centerPhi = m_grid.liquidPhi(xi, yi);
 
-			if (m_grid.liquidWx[xi][yi] > 0.0) {
-				Scalar phi = m_grid.liquidPhi[xi - 1][yi];
+			if (m_grid.liquidWx(xi, yi) > 0.0) {
+				Scalar phi = m_grid.liquidPhi(xi - 1, yi);
 				if (centerPhi < 0.0 || phi < 0.0) {
 					Scalar frac = 1.0;
 					if (centerPhi >= 0.0 || phi >= 0.0) {
 						frac = max(0.1, MathUtils::FractionInRegion(centerPhi, phi));
 					}
 
-					Scalar gradPressure = (m_grid.pressure[xi][yi] - m_grid.pressure[xi - 1][yi]) / (m_grid.dx.x() * frac);
-					m_grid.vx[xi][yi] -= gradPressure * dt / liquidDensity;
+					Scalar gradPressure = (m_grid.pressure(xi, yi) - m_grid.pressure(xi - 1, yi)) / (m_grid.dx.x() * frac);
+					m_grid.vx(xi, yi) -= gradPressure * dt / liquidDensity;
 				}
 			}
 			else {
-				m_grid.vx[xi][yi] = 0.0;
+				m_grid.vx(xi, yi) = 0.0;
 			}
 
-			if (m_grid.liquidWy[xi][yi] > 0.0) {
-				Scalar phi = m_grid.liquidPhi[xi][yi - 1];
+			if (m_grid.liquidWy(xi, yi) > 0.0) {
+				Scalar phi = m_grid.liquidPhi(xi, yi - 1);
 				if (centerPhi < 0.0 || phi < 0.0) {
 					Scalar frac = 1.0;
 					if (centerPhi >= 0.0 || phi >= 0.0) {
 						frac = max(0.1, MathUtils::FractionInRegion(centerPhi, phi));
 					}
 
-					Scalar gradPressure = (m_grid.pressure[xi][yi] - m_grid.pressure[xi][yi - 1]) / (m_grid.dx.y() * frac);
-					m_grid.vy[xi][yi] -= gradPressure * dt / liquidDensity;
+					Scalar gradPressure = (m_grid.pressure(xi, yi) - m_grid.pressure(xi, yi - 1)) / (m_grid.dx.y() * frac);
+					m_grid.vy(xi, yi) -= gradPressure * dt / liquidDensity;
 				}
 			}
 			else {
-				m_grid.vy[xi][yi] = 0.0;
+				m_grid.vy(xi, yi) = 0.0;
 			}
 		}
 	}
@@ -284,7 +285,7 @@ void LiquidModel<2>::ApplyGravity(const Scalar& dt) {
 	#pragma omp parallel for
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
-			m_grid.vy[xi][yi] += m_scene.GetGravity() * dt;
+			m_grid.vy(xi, yi) += m_scene.GetGravity() * dt;
 		}
 	}
 }
@@ -317,7 +318,7 @@ void LiquidModel<2>::Extrapolate() {
 	// process x axis extrapolate
 	for (Integer xi = 1; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
-			m_grid.isValid[xi][yi] = (m_grid.liquidWx[xi][yi] > 0.0);
+			m_grid.isValid(xi, yi) = (m_grid.liquidWx(xi, yi) > 0.0);
 		}
 	}
 
@@ -325,23 +326,23 @@ void LiquidModel<2>::Extrapolate() {
 		#pragma omp parallel for
 		for (Integer xi = 1; xi < m_grid.dimension.x(); ++xi) {
 			for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
-				m_grid.tempVx[xi][yi] = m_grid.vx[xi][yi];
-				if (m_grid.isValid[xi][yi]) continue;
+				m_grid.tempVx(xi, yi) = m_grid.vx(xi, yi);
+				if (m_grid.isValid(xi, yi)) continue;
 
 				Scalar sum = 0.0;
 				Integer count = 0;
 				for (Integer dx = -1; dx <= 1; ++dx) {
 					for (Integer dy = -1; dy <= 1; ++dy) {
-						if (m_grid.isValid[xi + dx][yi + dy]) {
-							sum += m_grid.vx[xi + dx][yi + dy];
+						if (m_grid.isValid(xi + dx, yi + dy)) {
+							sum += m_grid.vx(xi + dx, yi + dy);
 							++count;
 						}
 					}
 				}
 
 				if (count > 0) {
-					m_grid.tempVx[xi][yi] = sum / count;
-					m_grid.isValid[xi][yi] = true;
+					m_grid.tempVx(xi, yi) = sum / count;
+					m_grid.isValid(xi, yi) = true;
 				}
 			}
 		}
@@ -351,7 +352,7 @@ void LiquidModel<2>::Extrapolate() {
 	// process x axis extrapolate
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
-			m_grid.isValid[xi][yi] = (m_grid.liquidWy[xi][yi] > 0.0);
+			m_grid.isValid(xi, yi) = (m_grid.liquidWy(xi, yi) > 0.0);
 		}
 	}
 
@@ -359,24 +360,24 @@ void LiquidModel<2>::Extrapolate() {
 		#pragma omp parallel for
 		for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 			for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
-				m_grid.tempVy[xi][yi] = m_grid.vy[xi][yi];
-				if (m_grid.isValid[xi][yi]) continue;
+				m_grid.tempVy(xi, yi) = m_grid.vy(xi, yi);
+				if (m_grid.isValid(xi, yi)) continue;
 
 				Scalar sum = 0.0;
 				Integer count = 0;
 
 				for (Integer dx = -1; dx <= 1; ++dx) {
 					for (Integer dy = -1; dy <= 1; ++dy) {
-						if (m_grid.isValid[xi + dx][yi + dy]) {
-							sum += m_grid.vy[xi + dx][yi + dy];
+						if (m_grid.isValid(xi + dx, yi + dy)) {
+							sum += m_grid.vy(xi + dx, yi + dy);
 							++count;
 						}
 					}
 				}
 
 				if (count > 0) {
-					m_grid.tempVy[xi][yi] = sum / count;
-					m_grid.isValid[xi][yi] = true;
+					m_grid.tempVy(xi, yi) = sum / count;
+					m_grid.isValid(xi, yi) = true;
 				}
 			}
 		}
@@ -390,10 +391,10 @@ Scalar LiquidModel<2>::ComputeDivergence() const {
 	Integer count = 0;
 	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-			if (m_grid.liquidPhi[xi][yi] > 0.0) continue;
+			if (m_grid.liquidPhi(xi, yi) > 0.0) continue;
 			++count;
-			Scalar div = m_grid.liquidWx[xi + 1][yi] * m_grid.vx[xi + 1][yi] - m_grid.liquidWx[xi][yi] * m_grid.vx[xi][yi];
-			div += m_grid.liquidWy[xi][yi + 1] * m_grid.vy[xi][yi + 1] - m_grid.liquidWy[xi][yi] * m_grid.vy[xi][yi];
+			Scalar div = m_grid.liquidWx(xi + 1, yi) * m_grid.vx(xi + 1, yi) - m_grid.liquidWx(xi, yi) * m_grid.vx(xi, yi);
+			div += m_grid.liquidWy(xi, yi + 1) * m_grid.vy(xi, yi + 1) - m_grid.liquidWy(xi, yi) * m_grid.vy(xi, yi);
 			div /= m_grid.dx.x();
 			divergence += div;
 		}
@@ -494,72 +495,70 @@ void LiquidModel<3>::PostStep(const Scalar& dt) {
 template <>
 void LiquidModel<3>::ComputeLiquidPhi() {
 #pragma omp parallel for
-	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
-		const Vector3& pos = m_ps.GetPosition(pi);
-		const Scalar& radius = m_ps.GetRadius(pi);
-		Vector3i coord = m_grid.Point2Index(pos);
-
-		Integer deltaX = static_cast<Integer>(std::ceil(radius / m_grid.dx.x()));
-		Integer deltaY = static_cast<Integer>(std::ceil(radius / m_grid.dx.y()));
-		Integer deltaZ = static_cast<Integer>(std::ceil(radius / m_grid.dx.z()));
-		for (Integer xi = max(0, coord.x() - deltaX); xi <= min(m_grid.dimension.x() - 1, coord.x() + deltaX); ++xi) {
-			for (Integer yi = max(0, coord.y() - deltaY); yi <= min(m_grid.dimension.y() - 1, coord.y() + deltaY); ++yi) {
-				for (Integer zi = max(0, coord.z() - deltaZ); zi <= min(m_grid.dimension.z() - 1, coord.z() + deltaZ); ++zi) {
+	for (int pi = 0; pi < m_ps.NumParticles(); ++pi) {
+		const auto& pos = m_ps.GetPosition(pi);
+		Scalar radius = m_ps.GetRadius(pi);
+		auto coord = m_grid.Point2Index(pos);
+		int dX = int(std::ceil(radius / m_grid.dx.x()));
+		int dY = int(std::ceil(radius / m_grid.dx.y()));
+		int dZ = int(std::ceil(radius / m_grid.dx.z()));
+		for (int xi = max(0, coord.x() - dX); xi <= min(m_grid.dimension.x() - 1, coord.x() + dX); ++xi)
+			for (int yi = max(0, coord.y() - dY); yi <= min(m_grid.dimension.y() - 1, coord.y() + dY); ++yi)
+				for (int zi = max(0, coord.z() - dZ); zi <= min(m_grid.dimension.z() - 1, coord.z() + dZ); ++zi) {
 					Vector3 cellPos = m_grid.Index2Point(xi, yi, zi);
 					Scalar phi = (cellPos - pos).norm() - radius;
-
-					#pragma omp critical
-					{
-						m_grid.liquidPhi[xi][yi][zi] = min(m_grid.liquidPhi[xi][yi][zi], phi);
-					}
+#pragma omp critical
+					m_grid.liquidPhi(xi, yi, zi) = min(m_grid.liquidPhi(xi, yi, zi), phi);
 				}
-			}
-		}
 	}
 }
 
 template <>
 void LiquidModel<3>::ComputeSolidPhi() {
-	if (m_boundary == nullptr) return;
+	if (!m_boundary) return;
 
-	for (Integer xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
-		for (Integer yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
-			for (Integer zi = 0; zi < m_grid.dimension.z() + 1; ++zi) {
-				Vector3 cellPos = Vector3(xi, yi, zi).cwiseProduct(m_grid.dx) + m_grid.minCoord;
-				m_grid.solidPhi[xi][yi][zi] = m_boundary->Compute(cellPos);
+#pragma omp parallel for
+	for (int xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
+		for (int yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
+			for (int zi = 0; zi < m_grid.dimension.z() + 1; ++zi) {
+				Vector3 p = Vector3(xi, yi, zi).cwiseProduct(m_grid.dx) + m_grid.minCoord;
+				m_grid.solidPhi(xi, yi, zi) = m_boundary->Compute(p);
 			}
 		}
 	}
 
-	#pragma omp parallel for
-	for (Integer xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
-		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-			for (Integer zi = 0; zi < m_grid.dimension.z(); ++zi) {
-				m_grid.liquidWx[xi][yi][zi] = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi[xi][yi][zi], m_grid.solidPhi[xi][yi + 1][zi],
-																				m_grid.solidPhi[xi][yi][zi + 1], m_grid.solidPhi[xi][yi + 1][zi + 1]);
-				m_grid.liquidWx[xi][yi][zi] = MathUtils::Clamp(m_grid.liquidWx[xi][yi][zi], 0.0, 1.0);
+	// liquidWx
+#pragma omp parallel for
+	for (int xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
+		for (int yi = 0; yi < m_grid.dimension.y(); ++yi) {
+			for (int zi = 0; zi < m_grid.dimension.z(); ++zi) {
+				Scalar a = m_grid.solidPhi(xi, yi, zi);
+				Scalar b = m_grid.solidPhi(xi, yi + 1, zi);
+				m_grid.liquidWx(xi, yi, zi) = MathUtils::Clamp(1.0 - MathUtils::FractionInRegion(a, b), 0.0, 1.0);
 			}
 		}
 	}
 
-	#pragma omp parallel for
-	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
-		for (Integer yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
-			for (Integer zi = 0; zi < m_grid.dimension.z(); ++zi) {
-				m_grid.liquidWy[xi][yi][zi] = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi[xi][yi][zi], m_grid.solidPhi[xi + 1][yi][zi],
-																				m_grid.solidPhi[xi][yi][zi + 1], m_grid.solidPhi[xi + 1][yi][zi + 1]);
-				m_grid.liquidWy[xi][yi][zi] = MathUtils::Clamp(m_grid.liquidWy[xi][yi][zi], 0.0, 1.0);
+	// liquidWy
+#pragma omp parallel for
+	for (int xi = 0; xi < m_grid.dimension.x(); ++xi) {
+		for (int yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
+			for (int zi = 0; zi < m_grid.dimension.z(); ++zi) {
+				Scalar a = m_grid.solidPhi(xi, yi, zi);
+				Scalar b = m_grid.solidPhi(xi + 1, yi, zi);
+				m_grid.liquidWy(xi, yi, zi) = MathUtils::Clamp(1.0 - MathUtils::FractionInRegion(a, b), 0.0, 1.0);
 			}
 		}
 	}
 
-	#pragma omp parallel for
-	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
-		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-			for (Integer zi = 0; zi < m_grid.dimension.z() + 1; ++zi) {
-				m_grid.liquidWz[xi][yi][zi] = 1.0 - MathUtils::FractionInRegion(m_grid.solidPhi[xi][yi][zi], m_grid.solidPhi[xi + 1][yi][zi],
-																				m_grid.solidPhi[xi][yi + 1][zi], m_grid.solidPhi[xi + 1][yi + 1][zi]);
-				m_grid.liquidWz[xi][yi][zi] = MathUtils::Clamp(m_grid.liquidWz[xi][yi][zi], 0.0, 1.0);
+	// liquidWz
+#pragma omp parallel for
+	for (int xi = 0; xi < m_grid.dimension.x(); ++xi) {
+		for (int yi = 0; yi < m_grid.dimension.y(); ++yi) {
+			for (int zi = 0; zi < m_grid.dimension.z() + 1; ++zi) {
+				Scalar a = m_grid.solidPhi(xi, yi, zi);
+				Scalar b = m_grid.solidPhi(xi + 1, yi, zi);
+				m_grid.liquidWz(xi, yi, zi) = MathUtils::Clamp(1.0 - MathUtils::FractionInRegion(a, b), 0.0, 1.0);
 			}
 		}
 	}
@@ -569,16 +568,13 @@ template <>
 void LiquidModel<3>::Particle2Grid() {
 	#pragma omp parallel for 
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
-		const Vector3& pos = m_ps.GetPosition(pi);
-		const Vector3& vel = m_ps.GetVelocity(pi);
-		const Matrix3& affineMat = m_ps.GetAffineMatrix(pi);
-		const Scalar& radius = m_ps.GetRadius(pi);
+		const Particle<3>& particle = m_ps.GetParticle(pi);
 
-		Vector3 gridPos = (pos - m_grid.minCoord).cwiseQuotient(m_grid.dx);
+		Vector3 gridPos = (particle.position - m_grid.minCoord).cwiseQuotient(m_grid.dx);
 		Vector3i cellIndex = gridPos.cast<Integer>();
-		Integer deltaX = static_cast<Integer>(std::ceil(radius / m_grid.dx.x()));
-		Integer deltaY = static_cast<Integer>(std::ceil(radius / m_grid.dx.y()));
-		Integer deltaZ = static_cast<Integer>(std::ceil(radius / m_grid.dx.z()));
+		Integer deltaX = static_cast<Integer>(std::ceil(particle.radius / m_grid.dx.x()));
+		Integer deltaY = static_cast<Integer>(std::ceil(particle.radius / m_grid.dx.y()));
+		Integer deltaZ = static_cast<Integer>(std::ceil(particle.radius / m_grid.dx.z()));
 
 		// handle wx and vx grid
 		for (Integer dx = -deltaX; dx <= deltaX; ++dx) {
@@ -591,13 +587,13 @@ void LiquidModel<3>::Particle2Grid() {
 					Scalar weight = BSplineKernel::QuadraticWeight(gridPos.x() - cellCenter.x()) *
 									BSplineKernel::QuadraticWeight(gridPos.y() - cellCenter.y()) * 
 									BSplineKernel::QuadraticWeight(gridPos.z() - cellCenter.z());
-					Vector3 dpos = pos - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
+					Vector3 dpos = particle.position - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
 
 #pragma omp atomic
-					m_grid.wx[xi][yi][zi] += weight;
+					m_grid.wx(xi, yi, zi) += weight;
 
 #pragma omp atomic
-					m_grid.vx[xi][yi][zi] += weight * (vel[0] + affineMat.col(0).dot(dpos));
+					m_grid.vx(xi, yi, zi) += weight * (particle.velocity[0] + particle.affineMatrix.col(0).dot(dpos));
 				}
 			}
 		}
@@ -613,13 +609,13 @@ void LiquidModel<3>::Particle2Grid() {
 					Scalar weight = BSplineKernel::QuadraticWeight(gridPos.x() - cellCenter.x()) *
 									BSplineKernel::QuadraticWeight(gridPos.y() - cellCenter.y()) *
 									BSplineKernel::QuadraticWeight(gridPos.z() - cellCenter.z());
-					Vector3 dpos = pos - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
+					Vector3 dpos = particle.position - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
 
 #pragma omp atomic
-					m_grid.wy[xi][yi][zi] += weight;
+					m_grid.wy(xi, yi, zi) += weight;
 
 #pragma omp atomic
-					m_grid.vy[xi][yi][zi] += weight * (vel[1] + affineMat.col(1).dot(dpos));
+					m_grid.vy(xi, yi, zi) += weight * (particle.velocity[1] + particle.affineMatrix.col(1).dot(dpos));
 				}
 			}
 		}
@@ -635,39 +631,42 @@ void LiquidModel<3>::Particle2Grid() {
 					Scalar weight = BSplineKernel::QuadraticWeight(gridPos.x() - cellCenter.x()) *
 									BSplineKernel::QuadraticWeight(gridPos.y() - cellCenter.y()) *
 									BSplineKernel::QuadraticWeight(gridPos.z() - cellCenter.z());
-					Vector3 dpos = pos - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
+					Vector3 dpos = particle.position - (cellCenter.cwiseProduct(m_grid.dx) + m_grid.minCoord);
 
 #pragma omp atomic
-					m_grid.wz[xi][yi][zi] += weight;
+					m_grid.wz(xi, yi, zi) += weight;
 
 #pragma omp atomic
-					m_grid.vz[xi][yi][zi] += weight * (vel[2] + affineMat.col(2).dot(dpos));
+					m_grid.vz(xi, yi, zi) += weight * (particle.velocity[2] + particle.affineMatrix.col(2).dot(dpos));
 				}
 			}
 		}
 
 	}
 
+#pragma omp simd
 	for (Integer xi = 0; xi < m_grid.dimension.x() + 1; ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
 			for (Integer zi = 0; zi < m_grid.dimension.z(); ++zi) {
-				m_grid.vx[xi][yi][zi] = !MathUtils::IsSmall(m_grid.wx[xi][yi][zi]) ? m_grid.vx[xi][yi][zi] / m_grid.wx[xi][yi][zi] : 0.0;
+				m_grid.vx(xi, yi, zi) = !MathUtils::IsSmall(m_grid.wx(xi, yi, zi)) ? m_grid.vx(xi, yi, zi) / m_grid.wx(xi, yi, zi) : 0.0;
 			}
 		}
 	}
 
+#pragma omp simd
 	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y() + 1; ++yi) {
 			for (Integer zi = 0; zi < m_grid.dimension.z(); ++zi) {
-				m_grid.vy[xi][yi][zi] = !MathUtils::IsSmall(m_grid.wy[xi][yi][zi]) ? m_grid.vy[xi][yi][zi] / m_grid.wy[xi][yi][zi] : 0.0;
+				m_grid.vy(xi, yi, zi) = !MathUtils::IsSmall(m_grid.wy(xi, yi, zi)) ? m_grid.vy(xi, yi, zi) / m_grid.wy(xi, yi, zi) : 0.0;
 			}
 		}
 	}
 
+#pragma omp simd
 	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
 			for (Integer zi = 0; zi < m_grid.dimension.z() + 1; ++zi) {
-				m_grid.vz[xi][yi][zi] = !MathUtils::IsSmall(m_grid.wz[xi][yi][zi]) ? m_grid.vz[xi][yi][zi] / m_grid.wz[xi][yi][zi] : 0.0;
+				m_grid.vz(xi, yi, zi) = !MathUtils::IsSmall(m_grid.wz(xi, yi, zi)) ? m_grid.vz(xi, yi, zi) / m_grid.wz(xi, yi, zi) : 0.0;
 			}
 		}
 	}
@@ -710,8 +709,8 @@ void LiquidModel<3>::Grid2Particle() {
 					Scalar weight = weightX * weightY * weightZ;
 					Vector3 gradWeight(gradWeightX * weightY * weightZ, weightX * gradWeightY * weightZ, weightX * weightY * gradWeightZ);
 
-					velX += m_grid.vx[xi][yi][zi] * weight;
-					affineMatrix.col(0) += m_grid.vx[xi][yi][zi] * gradWeight;
+					velX += m_grid.vx(xi, yi, zi) * weight;
+					affineMatrix.col(0) += m_grid.vx(xi, yi, zi) * gradWeight;
 				}
 			}
 		}
@@ -719,7 +718,6 @@ void LiquidModel<3>::Grid2Particle() {
 		// handle wy and vy grid
 		for (Integer dx = -deltaX; dx <= deltaX; ++dx) {
 			for (Integer dy = -deltaY; dy <= deltaY; ++dy) {
-				for (Integer dz = -deltaZ; dz <= deltaZ; ++dz) {
 				for (Integer dz = -deltaZ; dz <= deltaZ; ++dz) {
 					Integer xi = cellIndex.x() + dx, yi = cellIndex.y() + dy, zi = cellIndex.z() + dz;
 					if (xi < 0 || xi >= m_grid.dimension.x() ||
@@ -737,8 +735,8 @@ void LiquidModel<3>::Grid2Particle() {
 					Scalar weight = weightX * weightY * weightZ;
 					Vector3 gradWeight(gradWeightX * weightY * weightZ, weightX * gradWeightY * weightZ, weightX * weightY * gradWeightZ);
 
-					velY += m_grid.vy[xi][yi][zi] * weight;
-					affineMatrix.col(1) += m_grid.vy[xi][yi][zi] * gradWeight;
+					velY += m_grid.vy(xi, yi, zi) * weight;
+					affineMatrix.col(1) += m_grid.vy(xi, yi, zi) * gradWeight;
 				}
 			}
 		}
@@ -763,8 +761,8 @@ void LiquidModel<3>::Grid2Particle() {
 					Scalar weight = weightX * weightY * weightZ;
 					Vector3 gradWeight(gradWeightX * weightY * weightZ, weightX * gradWeightY * weightZ, weightX * weightY * gradWeightZ);
 
-					velZ += m_grid.vz[xi][yi][zi] * weight;
-					affineMatrix.col(2) += m_grid.vz[xi][yi][zi] * gradWeight;
+					velZ += m_grid.vz(xi, yi, zi) * weight;
+					affineMatrix.col(2) += m_grid.vz(xi, yi, zi) * gradWeight;
 				}
 			}
 		}
@@ -781,58 +779,58 @@ void LiquidModel<3>::SolvePressure(const Scalar& dt) {
 	m_solver.Solve(liquidDensity, dt);
 
 	// update for velocity
-#pragma omp parallel for
+	#pragma omp parallel for
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
 			for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
-				Scalar centerPhi = m_grid.liquidPhi[xi][yi][zi];
+				Scalar centerPhi = m_grid.liquidPhi(xi, yi, zi);
 
-				if (m_grid.liquidWx[xi][yi][zi] > 0.0) {
-					Scalar phi = m_grid.liquidPhi[xi - 1][yi][zi];
+				if (m_grid.liquidWx(xi, yi, zi) > 0.0) {
+					Scalar phi = m_grid.liquidPhi(xi - 1, yi, zi );
 					if (centerPhi < 0.0 || phi < 0.0) {
 						Scalar frac = 1.0;
 						if (centerPhi >= 0.0 || phi >= 0.0) {
 							frac = max(0.1, MathUtils::FractionInRegion(centerPhi, phi));
 						}
 
-						Scalar gradPressure = (m_grid.pressure[xi][yi][zi] - m_grid.pressure[xi - 1][yi][zi]) / (m_grid.dx.x() * frac);
-						m_grid.vx[xi][yi][zi] -= gradPressure * dt / liquidDensity;
+						Scalar gradPressure = (m_grid.pressure(xi, yi, zi) - m_grid.pressure(xi - 1, yi, zi)) / (m_grid.dx.x() * frac);
+						m_grid.vx(xi, yi, zi) -= gradPressure * dt / liquidDensity;
 					}
 				}
 				else {
-					m_grid.vx[xi][yi][zi] = 0.0;
+					m_grid.vx(xi, yi, zi) = 0.0;
 				}
 
-				if (m_grid.liquidWy[xi][yi][zi] > 0.0) {
-					Scalar phi = m_grid.liquidPhi[xi][yi - 1][zi];
+				if (m_grid.liquidWy(xi, yi, zi) > 0.0) {
+					Scalar phi = m_grid.liquidPhi(xi, yi - 1, zi);
 					if (centerPhi < 0.0 || phi < 0.0) {
 						Scalar frac = 1.0;
 						if (centerPhi >= 0.0 || phi >= 0.0) {
 							frac = max(0.1, MathUtils::FractionInRegion(centerPhi, phi));
 						}
 
-						Scalar gradPressure = (m_grid.pressure[xi][yi][zi] - m_grid.pressure[xi][yi - 1][zi]) / (m_grid.dx.y() * frac);
-						m_grid.vy[xi][yi][zi] -= gradPressure * dt / liquidDensity;
+						Scalar gradPressure = (m_grid.pressure(xi, yi, zi) - m_grid.pressure(xi, yi - 1, zi)) / (m_grid.dx.y() * frac);
+						m_grid.vy(xi, yi, zi) -= gradPressure * dt / liquidDensity;
 					}
 				}
 				else {
-					m_grid.vy[xi][yi][zi] = 0.0;
+					m_grid.vy(xi, yi, zi) = 0.0;
 				}
 
-				if (m_grid.liquidWz[xi][yi][zi] > 0.0) {
-					Scalar phi = m_grid.liquidPhi[xi][yi][zi - 1];
+				if (m_grid.liquidWz(xi, yi, zi) > 0.0) {
+					Scalar phi = m_grid.liquidPhi(xi, yi, zi - 1);
 					if (centerPhi < 0.0 || phi < 0.0) {
 						Scalar frac = 1.0;
 						if (centerPhi >= 0.0 || phi >= 0.0) {
 							frac = max(0.1, MathUtils::FractionInRegion(centerPhi, phi));
 						}
 
-						Scalar gradPressure = (m_grid.pressure[xi][yi][zi] - m_grid.pressure[xi][yi][zi - 1]) / (m_grid.dx.z() * frac);
-						m_grid.vz[xi][yi][zi] -= gradPressure * dt / liquidDensity;
+						Scalar gradPressure = (m_grid.pressure(xi, yi, zi) - m_grid.pressure(xi, yi, zi - 1)) / (m_grid.dx.z() * frac);
+						m_grid.vz(xi, yi, zi) -= gradPressure * dt / liquidDensity;
 					}
 				}
 				else {
-					m_grid.vz[xi][yi][zi] = 0.0;
+					m_grid.vz(xi, yi, zi) = 0.0;
 				}
 			}
 		}
@@ -847,11 +845,12 @@ void LiquidModel<3>::Projection(const Scalar& dt) {
 
 template <>
 void LiquidModel<3>::ApplyGravity(const Scalar& dt) {
-#pragma omp parallel for
+	Scalar gdt = m_scene.GetGravity() * dt;
+#pragma omp parallel for reduction(+:sum)
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
 			for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
-				m_grid.vy[xi][yi][zi] += m_scene.GetGravity() * dt;
+				m_grid.vy(xi, yi, zi) += gdt;
 			}
 		}
 	}
@@ -884,10 +883,11 @@ template <>
 void LiquidModel<3>::Extrapolate() {
 
 	// process x axis extrapolate
+#pragma omp simd
 	for (Integer xi = 1; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
 			for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
-				m_grid.isValid[xi][yi][zi] = (m_grid.liquidWx[xi][yi][zi] > 0.0);
+				m_grid.isValid(xi, yi, zi) = (m_grid.liquidWx(xi, yi, zi) > 0.0);
 			}
 		}
 	}
@@ -897,16 +897,16 @@ void LiquidModel<3>::Extrapolate() {
 		for (Integer xi = 1; xi < m_grid.dimension.x(); ++xi) {
 			for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
 				for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
-					m_grid.tempVx[xi][yi][zi] = m_grid.vx[xi][yi][zi];
-					if (m_grid.isValid[xi][yi][zi]) continue;
+					m_grid.tempVx(xi, yi, zi) = m_grid.vx(xi, yi, zi);
+					if (m_grid.isValid(xi, yi, zi)) continue;
 
 					Scalar sum = 0.0;
 					Integer count = 0;
 					for (Integer dx = -1; dx <= 1; ++dx) {
 						for (Integer dy = -1; dy <= 1; ++dy) {
 							for (Integer dz = -1; dz <= 1; ++dz) {
-								if (m_grid.isValid[xi + dx][yi + dy][zi + dz]) {
-									sum += m_grid.vx[xi + dx][yi + dy][zi + dz];
+								if (m_grid.isValid(xi + dx, yi + dy, zi + dz)) {
+									sum += m_grid.vx(xi + dx, yi + dy, zi + dz);
 									++count;
 								}
 							}
@@ -914,8 +914,8 @@ void LiquidModel<3>::Extrapolate() {
 					}
 
 					if (count > 0) {
-						m_grid.tempVx[xi][yi][zi] = sum / count;
-						m_grid.isValid[xi][yi][zi] = true;
+						m_grid.tempVx(xi, yi, zi) = sum / count;
+						m_grid.isValid(xi, yi, zi) = true;
 					}
 				}
 			}
@@ -924,10 +924,11 @@ void LiquidModel<3>::Extrapolate() {
 	}
 
 	// process y axis extrapolate
+#pragma omp simd
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
 			for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
-				m_grid.isValid[xi][yi][zi] = (m_grid.liquidWy[xi][yi][zi] > 0.0);
+				m_grid.isValid(xi, yi, zi) = (m_grid.liquidWy(xi, yi, zi) > 0.0);
 			}
 		}
 	}
@@ -937,16 +938,16 @@ void LiquidModel<3>::Extrapolate() {
 		for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 			for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
 				for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
-					m_grid.tempVy[xi][yi][zi] = m_grid.vy[xi][yi][zi];
-					if (m_grid.isValid[xi][yi][zi]) continue;
+					m_grid.tempVy(xi, yi, zi) = m_grid.vy(xi, yi, zi);
+					if (m_grid.isValid(xi, yi, zi)) continue;
 
 					Scalar sum = 0.0;
 					Integer count = 0;
 					for (Integer dx = -1; dx <= 1; ++dx) {
 						for (Integer dy = -1; dy <= 1; ++dy) {
 							for (Integer dz = -1; dz <= 1; ++dz) {
-								if (m_grid.isValid[xi + dx][yi + dy][zi + dz]) {
-									sum += m_grid.vy[xi + dx][yi + dy][zi + dz];
+								if (m_grid.isValid(xi + dx, yi + dy, zi + dz)) {
+									sum += m_grid.vy(xi + dx, yi + dy, zi + dz);
 									++count;
 								}
 							}
@@ -954,8 +955,8 @@ void LiquidModel<3>::Extrapolate() {
 					}
 
 					if (count > 0) {
-						m_grid.tempVy[xi][yi][zi] = sum / count;
-						m_grid.isValid[xi][yi][zi] = true;
+						m_grid.tempVy(xi, yi, zi) = sum / count;
+						m_grid.isValid(xi, yi, zi) = true;
 					}
 				}
 			}
@@ -964,10 +965,11 @@ void LiquidModel<3>::Extrapolate() {
 	}
 
 	// process z axis extrapolate
+#pragma omp simd
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
 			for (Integer zi = 1; zi < m_grid.dimension.z(); ++zi) {
-				m_grid.isValid[xi][yi][zi] = (m_grid.liquidWz[xi][yi][zi] > 0.0);
+				m_grid.isValid(xi, yi, zi) = (m_grid.liquidWz(xi, yi, zi) > 0.0);
 			}
 		}
 	}
@@ -977,16 +979,16 @@ void LiquidModel<3>::Extrapolate() {
 		for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 			for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
 				for (Integer zi = 1; zi < m_grid.dimension.z(); ++zi) {
-					m_grid.tempVz[xi][yi][zi] = m_grid.vz[xi][yi][zi];
-					if (m_grid.isValid[xi][yi][zi]) continue;
+					m_grid.tempVz(xi, yi, zi) = m_grid.vz(xi, yi, zi);
+					if (m_grid.isValid(xi, yi, zi)) continue;
 
 					Scalar sum = 0.0;
 					Integer count = 0;
 					for (Integer dx = -1; dx <= 1; ++dx) {
 						for (Integer dy = -1; dy <= 1; ++dy) {
 							for (Integer dz = -1; dz <= 1; ++dz) {
-								if (m_grid.isValid[xi + dx][yi + dy][zi + dz]) {
-									sum += m_grid.vz[xi + dx][yi + dy][zi + dz];
+								if (m_grid.isValid(xi + dx, yi + dy, zi + dz)) {
+									sum += m_grid.vz(xi + dx, yi + dy, zi + dz);
 									++count;
 								}
 							}
@@ -994,8 +996,8 @@ void LiquidModel<3>::Extrapolate() {
 					}
 
 					if (count > 0) {
-						m_grid.tempVz[xi][yi][zi] = sum / count;
-						m_grid.isValid[xi][yi][zi] = true;
+						m_grid.tempVz(xi, yi, zi) = sum / count;
+						m_grid.isValid(xi, yi, zi) = true;
 					}
 				}
 			}
@@ -1011,11 +1013,11 @@ Scalar LiquidModel<3>::ComputeDivergence() const {
 	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
 		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
 			for (Integer zi = 0; zi < m_grid.dimension.z(); ++zi) {
-				if (m_grid.liquidPhi[xi][yi][zi] > 0.0) continue;
+				if (m_grid.liquidPhi(xi, yi, zi) > 0.0) continue;
 				++count;
-				Scalar div = m_grid.liquidWx[xi + 1][yi][zi] * m_grid.vx[xi + 1][yi][zi] - m_grid.liquidWx[xi][yi][zi] * m_grid.vx[xi][yi][zi];
-				div += m_grid.liquidWy[xi][yi + 1][zi] * m_grid.vy[xi][yi + 1][zi] - m_grid.liquidWy[xi][yi][zi] * m_grid.vy[xi][yi][zi];
-				div += m_grid.liquidWz[xi][yi][zi + 1] * m_grid.vz[xi][yi][zi + 1] - m_grid.liquidWz[xi][yi][zi] * m_grid.vz[xi][yi][zi];
+				Scalar div = m_grid.liquidWx(xi + 1, yi, zi) * m_grid.vx(xi + 1, yi, zi) - m_grid.liquidWx(xi, yi, zi) * m_grid.vx(xi, yi, zi);
+				div += m_grid.liquidWy(xi, yi + 1, zi) * m_grid.vy(xi, yi + 1, zi) - m_grid.liquidWy(xi, yi, zi) * m_grid.vy(xi, yi, zi);
+				div += m_grid.liquidWz(xi, yi, zi + 1) * m_grid.vz(xi, yi, zi + 1) - m_grid.liquidWz(xi, yi, zi) * m_grid.vz(xi, yi, zi);
 				div /= m_grid.dx.x();
 				divergence += div;
 			}
@@ -1033,32 +1035,31 @@ void LiquidModel<3>::CorrectVolume(Scalar dt) {
 		if (pi % m_correctCycle != m_correctStep) continue;
 
 		Vector3 repel = Vector3::Zero();
-		const Vector3& pos = m_ps.GetPosition(pi);
+		Particle<3>& particle = m_ps.GetParticle(pi);
 
 		m_ns.ForEachNeighborParticles(pi, [&](Integer pi, Integer npi) {
-			Scalar radius = m_ps.GetRadius(pi);
-			Vector3 dir = pos - m_ps.GetPosition(npi);
+			Vector3 dir = particle.position - m_ps.GetPosition(npi);
 			Scalar dist = dir.norm();
-			Scalar weight = weightFactor * BSplineKernel::QuadraticWeight(dist / radius);
-			if (dist > 1e-4 * radius) {
-				repel += weight * radius * (dir / dist);
+			Scalar weight = weightFactor * BSplineKernel::QuadraticWeight(dist / particle.radius);
+			if (dist > 1e-4 * particle.radius) {
+				repel += weight * particle.radius * (dir / dist);
 			}
 			else {
 				thread_local std::mt19937 rng(std::random_device{}());
 				std::uniform_real_distribution<Scalar> distRand(0.0, 1.0);
 
-				repel[0] += radius / dt * distRand(rng);
-				repel[1] += radius / dt * distRand(rng);
-				repel[2] += radius / dt * distRand(rng);
+				repel[0] += particle.radius / dt * distRand(rng);
+				repel[1] += particle.radius / dt * distRand(rng);
+				repel[2] += particle.radius / dt * distRand(rng);
 			}
 			});
-		Vector3 newPos = pos + repel * dt;
+		Vector3 newPos = particle.position + repel * dt;
 		Scalar solidPhi = m_grid.GetSolidPhi(newPos);
 		if (solidPhi < 0.0) {
 			Vector3 grad = m_grid.GetSolidGradient(newPos);
 			newPos -= solidPhi * grad;
 		}
-		m_ps.SetBuffer(pi, newPos);
+		particle.buffer = newPos;
 	}
 
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {

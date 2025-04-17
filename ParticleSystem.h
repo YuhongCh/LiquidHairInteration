@@ -46,14 +46,12 @@ public:
 
 	void Resize(Integer size);
 
+	void WriteToFile(const std::string& filename, bool isAppend = false) const;
+	void LoadFromLine(const std::string& line);
+
 private:
 	Integer m_size;
 	Scalar m_defaultRadius;
 	std::vector<Particle<DIM>> m_particle;
-	//std::vector<VectorX<DIM>> m_position;
-	//std::vector<VectorX<DIM>> m_velocity;
-	//std::vector<Scalar> m_radius;
-	//std::vector<VectorX<DIM>> m_buffer;
-	//std::vector<MatrixX<DIM, DIM>> m_affineMatrix;
 };
 

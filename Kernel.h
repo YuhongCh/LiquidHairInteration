@@ -30,4 +30,10 @@ struct BSplineKernel {
 		return 0.f;
 	}
 
+	static Scalar GradLinearWeight(Scalar dist) {
+		if (dist > 0.0 && dist < 1.0)  return -1.0f;
+		if (dist < 0.0 && dist > -1.0) return 1.0f;
+		return 0.0f;
+	}
+
 };

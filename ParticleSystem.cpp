@@ -18,7 +18,7 @@ void ParticleSystem<DIM>::Resize(Integer size) {
 
 template<>
 void ParticleSystem<2>::SpawnParticles(const VectorX<2>& minCoord, const VectorX<2>& maxCoord) {
-	Scalar interval = m_defaultRadius;
+	Scalar interval = 0.5 * m_defaultRadius;
 	Integer dx = (maxCoord.x() - minCoord.x()) / interval;
 	Integer dy = (maxCoord.y() - minCoord.y()) / interval;
 	Resize(dx * dy);
@@ -38,7 +38,7 @@ void ParticleSystem<2>::SpawnParticles(const VectorX<2>& minCoord, const VectorX
 
 template<>
 void ParticleSystem<3>::SpawnParticles(const VectorX<3>& minCoord, const VectorX<3>& maxCoord) {
-	Scalar interval = m_defaultRadius;
+	Scalar interval = 0.5 * m_defaultRadius;
 	Vector3i dx = ((maxCoord - minCoord) / interval).cast<Integer>();
 	Resize(dx.x() * dx.y() * dx.z());
 
@@ -57,3 +57,41 @@ void ParticleSystem<3>::SpawnParticles(const VectorX<3>& minCoord, const VectorX
 	}
 }
 
+template<int DIM>
+void ParticleSystem<DIM>::WriteToFile(const std::string& filename, bool isAppend) const {
+	std::ofstream writer;
+	if (isAppend) writer.open(filename, std::ios::out | std::ios::app);
+	else writer.open(filename, std::ios::out | std::ios::trunc);
+
+	if (!writer.is_open()) {
+		throw std::runtime_error("Failed to open file: " + filename);
+	}
+
+	writer << m_particle.size() << "\n";
+	for (const Particle<DIM>& particle : m_particle) {
+		for (Integer di = 0; di < DIM; ++di) {
+			writer << particle.position[di] << ",";
+		}
+	}
+	writer << "\n";
+	writer.close();
+}
+
+template<int DIM>
+void ParticleSystem<DIM>::LoadFromLine(const std::string& line) {
+	std::string token;
+	std::istringstream ss(line);
+
+	size_t numParticles = std::stoul(token);
+	if (numParticles != m_size) Resize(numParticles);
+
+	std::getline(ss, token, ',');
+	for (size_t i = 0; i < numParticles; ++i) {
+		for (Integer di = 0; di < DIM; ++di) {
+			if (!std::getline(ss, token, ',')) {
+				throw std::runtime_error("Failed to recognize line " + line);
+			}
+			m_particle[i].position[di] = std::stof(token);
+		}
+	}
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Definition.h"
+#include "Array.h"
 
 
 template <int DIM>
@@ -64,22 +65,22 @@ public:
 
 	Vector2 dx;
 	
-	std::vector<std::vector<Scalar>> vx;
-	std::vector<std::vector<Scalar>> vy;
+	Array2<Scalar> vx;
+	Array2<Scalar> vy;
 
 	// for extrapolate
-	std::vector<std::vector<Scalar>> tempVx;
-	std::vector<std::vector<Scalar>> tempVy;
-	std::vector<std::vector<bool>> isValid;
+	Array2<Scalar> tempVx;
+	Array2<Scalar> tempVy;
+	Array2<bool> isValid;
 
-	std::vector<std::vector<Scalar>> wx;
-	std::vector<std::vector<Scalar>> wy;
-	std::vector<std::vector<Scalar>> liquidWx;
-	std::vector<std::vector<Scalar>> liquidWy;
+	Array2<Scalar> wx;
+	Array2<Scalar> wy;
+	Array2<Scalar> liquidWx;
+	Array2<Scalar> liquidWy;
 
-	std::vector<std::vector<Scalar>> pressure;
-	std::vector<std::vector<Scalar>> liquidPhi;
-	std::vector<std::vector<Scalar>> solidPhi;
+	Array2<Scalar> pressure;
+	Array2<Scalar> liquidPhi;
+	Array2<Scalar> solidPhi;
 	
 };
 
@@ -148,26 +149,26 @@ public:
 
 	Vector3 dx;
 
-	std::vector<std::vector<std::vector<Scalar>>> vx;
-	std::vector<std::vector<std::vector<Scalar>>> vy;
-	std::vector<std::vector<std::vector<Scalar>>> vz;
+	Array3<Scalar> vx;
+	Array3<Scalar> vy;
+	Array3<Scalar> vz;
 
 	// for extrapolate
-	std::vector<std::vector<std::vector<Scalar>>> tempVx;
-	std::vector<std::vector<std::vector<Scalar>>> tempVy;
-	std::vector<std::vector<std::vector<Scalar>>> tempVz;
-	std::vector<std::vector<std::vector<bool>>> isValid;
+	Array3<Scalar> tempVx;
+	Array3<Scalar> tempVy;
+	Array3<Scalar> tempVz;
+	Array3<bool> isValid;
 
-	std::vector<std::vector<std::vector<Scalar>>> wx;
-	std::vector<std::vector<std::vector<Scalar>>> wy;
-	std::vector<std::vector<std::vector<Scalar>>> wz;
-	std::vector<std::vector<std::vector<Scalar>>> liquidWx;
-	std::vector<std::vector<std::vector<Scalar>>> liquidWy;
-	std::vector<std::vector<std::vector<Scalar>>> liquidWz;
+	Array3<Scalar> wx;
+	Array3<Scalar> wy;
+	Array3<Scalar> wz;
+	Array3<Scalar> liquidWx;
+	Array3<Scalar> liquidWy;
+	Array3<Scalar> liquidWz;
 
-	std::vector<std::vector<std::vector<Scalar>>> pressure;
-	std::vector<std::vector<std::vector<Scalar>>> liquidPhi;
-	std::vector<std::vector<std::vector<Scalar>>> solidPhi;
+	Array3<Scalar> pressure;
+	Array3<Scalar> liquidPhi;
+	Array3<Scalar> solidPhi;
 
 };
 

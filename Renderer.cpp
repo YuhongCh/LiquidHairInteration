@@ -223,7 +223,7 @@ void Renderer::RenderLines(const std::vector<VectorX<DIM>>& points, const std::v
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(Integer), indices.data(), GL_STATIC_DRAW);
 
     // Set vertex attribute for 2D positions (2 floats)
-    glVertexAttribPointer(0, DIM, GL_FLOAT, GL_FALSE, DIM * sizeof(Scalar), BUFFER_OFFSET(0));
+    glVertexAttribPointer(0, DIM, GL_FLOAT, GL_FALSE, sizeof(VectorX<DIM>), BUFFER_OFFSET(0));
     glEnableVertexAttribArray(0);
 
     auto [r, g, b, a] = color.toScalar();

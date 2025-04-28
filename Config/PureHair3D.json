@@ -1,0 +1,91 @@
+{
+    "SolverParameter": {
+        "maxIterations": 100,
+        "tolerance": 1e-5,
+        "preconditionerType": "Multigrid",
+        "numLevel" : 4,
+        "numPreSmooth" : 5,
+        "numPostSmooth" : 5,
+        "numFinalSmooth" : 20,
+        "smoothingFactor" : 0.5
+    },
+    "LiquidParameter": {
+        "numParticles": 0,
+        "viscosity": 0.001,
+        "density": 1000.0,
+        "surfaceTension": 0.0728,
+        "correctCycle": 8
+    },
+    "HairParameter": {
+        "radius": 0.05,
+        "youngsModulus": 1e5,
+        "shearModulus": 1e5,
+        "viscosity": 1000.0,
+        "density": 1000.0,
+        "refRotation": 0.0,
+        "accumViscosity": true,
+        
+        "numHair": 1,
+        "numParticles": 10,
+        "info": [
+            [
+                {
+                    "position": [0.0, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": true
+                },
+                {
+                    "position": [0.1, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.2, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.3, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.4, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.5, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.6, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.7, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.8, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                },
+                {
+                    "position": [0.9, 0.5, 0.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                    "isFixed": false
+                }
+            ]
+        ]
+    },
+    "dt": 0.01,
+    "gravity": -9.81,
+    "gridDimension": [64, 64, 64],
+    "minCoord": [-1.0, -1.0, -1.0],
+    "maxCoord": [1.0, 1.0, 1.0]
+
+}

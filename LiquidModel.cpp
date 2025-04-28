@@ -1,6 +1,7 @@
 #include "LiquidModel.h"
 #include "Kernel.h"
 #include "MathUtils.h"
+#include "Renderer.h"
 
 template class LiquidModel<2>;
 template class LiquidModel<3>;
@@ -11,15 +12,32 @@ template class LiquidModel<3>;
 template <>
 LiquidModel<2>::LiquidModel(const Scene<2>& scene)
 	: m_scene(scene), m_grid(scene.GetMinCoord(), scene.GetMaxCoord(), scene.GetGridDimension()),
-	m_ps(scene.GetNumParticle(), m_grid.dx.x()),
+	m_ps(scene.GetLiquidParameter().numParticles, m_grid.dx.x()),
 	m_boundary(nullptr), m_ns(m_ps, m_grid),
-	m_solver(m_grid, 500, 1e-5, CGSolver<2>::PrecondType::Multigrid, 4, 5, 5, 10){
+	m_solver(m_grid, scene.GetSolverParameter()){
 
 	m_correctStep = 0;
-	m_correctCycle = 8;
+	m_correctCycle = m_scene.GetLiquidParameter().correctCycle;
+
 	for (Integer i = 0; i < m_ps.NumParticles(); ++i) {
 		m_ps.SetRadius(i, m_grid.dx.x());
 	}
+
+	// initialize render utilities
+	m_renderProgram = Renderer::CreateShaderProgram("Shader/Scene2D_vertex.glsl", "Shader/Scene2D_fragment.glsl");
+	m_minCoordLoc = glGetUniformLocation(m_renderProgram, "minCoord");
+	m_maxCoordLoc = glGetUniformLocation(m_renderProgram, "maxCoord");
+	m_pointSizeLoc = glGetUniformLocation(m_renderProgram, "pointSize");
+	m_pixelColorLoc = glGetUniformLocation(m_renderProgram, "pixelColor");
+
+	glGenVertexArrays(1, &m_VAO);
+	glGenBuffers(1, &m_VBO);
+
+	glBindVertexArray(m_VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Particle<2>), (void*)offsetof(Particle<2>, position));
+	glBindVertexArray(0);
 }
 
 template <>
@@ -58,6 +76,8 @@ void LiquidModel<2>::PostStep(const Scalar& dt) {
 
 template <>
 void LiquidModel<2>::ComputeLiquidPhi() {
+	if (m_ps.NumParticles() == 0) return;
+
 	#pragma omp parallel for
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		const Vector2& pos = m_ps.GetPosition(pi);
@@ -71,10 +91,8 @@ void LiquidModel<2>::ComputeLiquidPhi() {
 				Vector2 cellPos = m_grid.Index2Point(xi, yi);
 				Scalar phi = (cellPos - pos).norm() - radius;
 
-				#pragma omp critical
-				{
-					m_grid.liquidPhi(xi, yi) = min(m_grid.liquidPhi(xi, yi), phi);
-				}
+#pragma omp critical
+				m_grid.liquidPhi(xi, yi) = min(m_grid.liquidPhi(xi, yi), phi);
 			}
 		}
 	}
@@ -108,6 +126,8 @@ void LiquidModel<2>::ComputeSolidPhi() {
 
 template <>
 void LiquidModel<2>::Particle2Grid() {
+	if (m_ps.NumParticles() == 0) return;
+
 	#pragma omp parallel for
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		const Particle<2>& particle = m_ps.GetParticle(pi);
@@ -170,6 +190,8 @@ void LiquidModel<2>::Particle2Grid() {
 
 template <>
 void LiquidModel<2>::Grid2Particle() {
+	if (m_ps.NumParticles() == 0) return;
+
 	#pragma omp parallel for
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		const Vector2& pos = m_ps.GetPosition(pi);
@@ -229,6 +251,8 @@ void LiquidModel<2>::Grid2Particle() {
 
 template <>
 void LiquidModel<2>::SolvePressure(const Scalar& dt) {
+	if (m_ps.NumParticles() == 0) return;
+
 	// solve for pressure
 	Scalar liquidDensity = m_scene.GetLiquidDensity();
 	m_solver.Solve(liquidDensity, dt);
@@ -292,6 +316,8 @@ void LiquidModel<2>::ApplyGravity(const Scalar& dt) {
 
 template <>
 void LiquidModel<2>::AdvectParticle(const Scalar& dt) {
+	if (m_ps.NumParticles() == 0) return;
+
 	#pragma omp parallel for
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		Vector2 vel = m_ps.GetVelocity(pi);
@@ -314,6 +340,7 @@ void LiquidModel<2>::AdvectParticle(const Scalar& dt) {
 
 template <>
 void LiquidModel<2>::Extrapolate() {
+	if (m_ps.NumParticles() == 0) return;
 
 	// process x axis extrapolate
 	for (Integer xi = 1; xi < m_grid.dimension.x(); ++xi) {
@@ -451,12 +478,29 @@ void LiquidModel<2>::CorrectVolume(Scalar dt) {
 template <>
 LiquidModel<3>::LiquidModel(const Scene<3>& scene)
 	: m_scene(scene), m_grid(scene.GetMinCoord(), scene.GetMaxCoord(), scene.GetGridDimension()),
-	m_ps(scene.GetNumParticle(), m_grid.dx.x()),
+	m_ps(scene.GetLiquidParameter().numParticles, m_grid.dx.x()),
 	m_boundary(nullptr), m_ns(m_ps, m_grid),
-	m_solver(m_grid, 500, 1e-5, CGSolver<3>::PrecondType::Multigrid, 4) {
+	m_solver(m_grid, scene.GetSolverParameter()) {
 
 	m_correctStep = 0;
 	m_correctCycle = 8;
+
+	// render constructor
+	m_renderProgram = Renderer::CreateShaderProgram("Shader/Scene3D_vertex.glsl", "Shader/Scene3D_fragment.glsl");
+	m_minCoordLoc = glGetUniformLocation(m_renderProgram, "minCoord");
+	m_maxCoordLoc = glGetUniformLocation(m_renderProgram, "maxCoord");
+	m_pointSizeLoc = glGetUniformLocation(m_renderProgram, "pointSize");
+	m_pixelColorLoc = glGetUniformLocation(m_renderProgram, "pixelColor");
+
+	glGenVertexArrays(1, &m_VAO);
+	glGenBuffers(1, &m_VBO);
+
+	glBindVertexArray(m_VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle<3>), (void*)offsetof(Particle<3>, position));
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 template <>
@@ -480,7 +524,7 @@ void LiquidModel<3>::Step(const Scalar& dt) {
 	Extrapolate();
 	Grid2Particle();
 	AdvectParticle(dt);
-	CorrectVolume(dt);
+	//CorrectVolume(dt);
 }
 
 template <>
@@ -494,6 +538,8 @@ void LiquidModel<3>::PostStep(const Scalar& dt) {
 
 template <>
 void LiquidModel<3>::ComputeLiquidPhi() {
+	if (m_ps.NumParticles() == 0) return;
+
 #pragma omp parallel for
 	for (int pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		const auto& pos = m_ps.GetPosition(pi);
@@ -566,6 +612,8 @@ void LiquidModel<3>::ComputeSolidPhi() {
 
 template <>
 void LiquidModel<3>::Particle2Grid() {
+	if (m_ps.NumParticles() == 0) return;
+
 	#pragma omp parallel for 
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		const Particle<3>& particle = m_ps.GetParticle(pi);
@@ -674,6 +722,8 @@ void LiquidModel<3>::Particle2Grid() {
 
 template <>
 void LiquidModel<3>::Grid2Particle() {
+	if (m_ps.NumParticles() == 0) return;
+
 #pragma omp parallel for
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		const Vector3& pos = m_ps.GetPosition(pi);
@@ -775,6 +825,8 @@ void LiquidModel<3>::Grid2Particle() {
 template <>
 void LiquidModel<3>::SolvePressure(const Scalar& dt) {
 	// solve for pressure
+	if (m_ps.NumParticles() == 0) return;
+
 	Scalar liquidDensity = m_scene.GetLiquidDensity();
 	m_solver.Solve(liquidDensity, dt);
 
@@ -846,7 +898,8 @@ void LiquidModel<3>::Projection(const Scalar& dt) {
 template <>
 void LiquidModel<3>::ApplyGravity(const Scalar& dt) {
 	Scalar gdt = m_scene.GetGravity() * dt;
-#pragma omp parallel for reduction(+:sum)
+	
+#pragma omp simd
 	for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
 		for (Integer yi = 1; yi < m_grid.dimension.y(); ++yi) {
 			for (Integer zi = 1; zi < m_grid.dimension.z() - 1; ++zi) {
@@ -858,6 +911,8 @@ void LiquidModel<3>::ApplyGravity(const Scalar& dt) {
 
 template <>
 void LiquidModel<3>::AdvectParticle(const Scalar& dt) {
+	if (m_ps.NumParticles() == 0) return;
+
 #pragma omp parallel for
 	for (Integer pi = 0; pi < m_ps.NumParticles(); ++pi) {
 		Vector3 vel = m_ps.GetVelocity(pi);
@@ -876,11 +931,12 @@ void LiquidModel<3>::AdvectParticle(const Scalar& dt) {
 
 		m_ps.SetPosition(pi, pos);
 	}
-	m_ns.ReCompute();
+	//m_ns.ReCompute();
 }
 
 template <>
 void LiquidModel<3>::Extrapolate() {
+	if (m_ps.NumParticles() == 0) return;
 
 	// process x axis extrapolate
 #pragma omp simd
@@ -1028,6 +1084,8 @@ Scalar LiquidModel<3>::ComputeDivergence() const {
 
 template <>
 void LiquidModel<3>::CorrectVolume(Scalar dt) {
+	if (m_ps.NumParticles() == 0) return;
+
 	Scalar weightFactor = std::sqrt(m_grid.dx.x() * m_grid.dx.y() * m_grid.dx.z());
 
 #pragma omp parallel for schedule(dynamic)
@@ -1036,6 +1094,8 @@ void LiquidModel<3>::CorrectVolume(Scalar dt) {
 
 		Vector3 repel = Vector3::Zero();
 		Particle<3>& particle = m_ps.GetParticle(pi);
+		thread_local std::mt19937 rng(std::random_device{}());
+		std::uniform_real_distribution<Scalar> distRand(0.0, 1.0);
 
 		m_ns.ForEachNeighborParticles(pi, [&](Integer pi, Integer npi) {
 			Vector3 dir = particle.position - m_ps.GetPosition(npi);
@@ -1045,8 +1105,8 @@ void LiquidModel<3>::CorrectVolume(Scalar dt) {
 				repel += weight * particle.radius * (dir / dist);
 			}
 			else {
-				thread_local std::mt19937 rng(std::random_device{}());
-				std::uniform_real_distribution<Scalar> distRand(0.0, 1.0);
+				//thread_local std::mt19937 rng(std::random_device{}());
+				//std::uniform_real_distribution<Scalar> distRand(0.0, 1.0);
 
 				repel[0] += particle.radius / dt * distRand(rng);
 				repel[1] += particle.radius / dt * distRand(rng);
@@ -1071,6 +1131,38 @@ void LiquidModel<3>::CorrectVolume(Scalar dt) {
 	m_ns.ReCompute();
 }
 
+#pragma endregion
 
+#pragma region General Function
+
+template <int DIM>
+void LiquidModel<DIM>::Render() const {
+	glUseProgram(m_renderProgram);
+	glPointSize(5.0);
+
+	// Bind and upload the data
+	const std::vector<Particle<DIM>>& particles = m_ps.GetParticles();
+	glBindVertexArray(m_VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+	glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(Particle<DIM>), particles.data(), GL_DYNAMIC_DRAW);
+
+	auto [r, g, b, a] = Color::Blue().toScalar();
+	glUniform3fv(m_minCoordLoc, 1, m_scene.GetMinCoord().data());
+	glUniform3fv(m_maxCoordLoc, 1, m_scene.GetMaxCoord().data());
+	glUniform1f(m_pointSizeLoc, 5.0);
+	glUniform4f(m_pixelColorLoc, r, g, b, a);
+
+	glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(particles.size()));
+
+	// Unbind and clean up the buffers
+	glBindVertexArray(0);
+}
+
+template <int DIM>
+LiquidModel<DIM>::~LiquidModel() {
+	glDeleteBuffers(1, &m_VBO);
+	glDeleteVertexArrays(1, &m_VAO);
+	glDeleteProgram(m_renderProgram);
+}
 
 #pragma endregion

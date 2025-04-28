@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>include/Eigen/include;include/glad/include;include/GLFW/include;$(IncludePath)</IncludePath>
+    <IncludePath>include/Eigen/include;include/glad/include;include/GLFW/include;include/json/include;$(IncludePath)</IncludePath>
     <LibraryPath>include/GLFW/lib-vc2022;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -140,32 +140,46 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ConstraintSolver.cpp" />
     <ClCompile Include="Grid.cpp" />
+    <ClCompile Include="HairModel.cpp" />
+    <ClCompile Include="HairState.cpp" />
     <ClCompile Include="include\glad\src\glad.c" />
+    <ClCompile Include="Kappa.cpp" />
     <ClCompile Include="LiquidModel.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MathUtils.cpp" />
-    <ClCompile Include="NeighborSearch.cpp" />
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="PressureSolver.cpp" />
+    <ClCompile Include="ReferenceFrame.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="StretchForce.cpp" />
+    <ClCompile Include="Twist.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h" />
+    <ClInclude Include="BendingProduct.h" />
     <ClInclude Include="Boundary.h" />
     <ClInclude Include="Color.h" />
+    <ClInclude Include="ConstraintSolver.h" />
     <ClInclude Include="Definition.h" />
     <ClInclude Include="Grid.h" />
+    <ClInclude Include="HairModel.h" />
+    <ClInclude Include="HairState.h" />
+    <ClInclude Include="Kappa.h" />
     <ClInclude Include="Kernel.h" />
     <ClInclude Include="LiquidModel.h" />
     <ClInclude Include="NeighborSearch.h" />
+    <ClInclude Include="ReferenceFrame.h" />
     <ClInclude Include="SceneParameter.h" />
     <ClInclude Include="MathUtils.h" />
     <ClInclude Include="ParticleSystem.h" />
     <ClInclude Include="PressureSolver.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Scene.h" />
+    <ClInclude Include="StretchForce.h" />
+    <ClInclude Include="Twist.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,121 +1,6 @@
 #include "PressureSolver.h"
 #include "MathUtils.h"
-
-
-//#pragma region Jacobi Solver
-//template class JacobiSolver<2>;
-//
-//#pragma region Jacobi Solver 2D
-//
-//void JacobiSolver<2>::BuildRHS() {
-//	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
-//		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-//			m_rhs[xi][yi] = 0.0;
-//			if (m_grid.liquidPhi[xi][yi] > 0.0) continue;
-//
-//			m_rhs[xi][yi] -= m_grid.liquidWx[xi + 1][yi] * m_grid.vx[xi + 1][yi] / m_grid.dx.x();
-//			m_rhs[xi][yi] += m_grid.liquidWx[xi][yi] * m_grid.vx[xi][yi] / m_grid.dx.x();
-//			m_rhs[xi][yi] -= m_grid.liquidWy[xi][yi + 1] * m_grid.vy[xi][yi + 1] / m_grid.dx.y();
-//			m_rhs[xi][yi] += m_grid.liquidWy[xi][yi] * m_grid.vy[xi][yi] / m_grid.dx.y();
-//		}
-//	}
-//}
-//
-//void JacobiSolver<2>::Solve(const Scalar& liquidDensity, const Scalar& dt, bool warmStart) {
-//	BuildRHS();
-//
-//	if (!warmStart) {
-//		for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
-//			m_buffer0[xi].assign(m_grid.dimension.y(), 0.0);
-//		}
-//	}
-//
-//	for (Integer iter = 0; iter < m_maxIteration; ++iter) {
-//		#pragma omp parallel for
-//		for (Integer xi = 1; xi < m_grid.dimension.x() - 1; ++xi) {
-//			for (Integer yi = 1; yi < m_grid.dimension.y() - 1; ++yi) {
-//				Scalar leftValue = 0.0, rightValue = 0.0, topValue = 0.0, botValue = 0.0, diagValue = 0.0;
-//				Scalar centerPhi = m_grid.liquidPhi[xi][yi];
-//				if (centerPhi > 0.0) continue;
-//
-//				// right
-//				if (m_grid.liquidWx[xi + 1][yi] > 0.0) {
-//					Scalar term = m_grid.liquidWx[xi + 1][yi] * dt / (liquidDensity * m_grid.dx.x() * m_grid.dx.x());
-//					Scalar phi = m_grid.liquidPhi[xi + 1][yi];
-//					if (phi < 0.0) {
-//						rightValue -= term * m_buffer0[xi + 1][yi];
-//						diagValue += term;
-//					}
-//					else {
-//						Scalar frac = MathUtils::FractionInRegion(centerPhi, phi);
-//						diagValue += term / frac;
-//					}
-//				}
-//
-//				// left
-//				if (m_grid.liquidWx[xi][yi] > 0.0) {
-//					Scalar term = m_grid.liquidWx[xi][yi] * dt / (liquidDensity * m_grid.dx.x() * m_grid.dx.x());
-//					Scalar phi = m_grid.liquidPhi[xi - 1][yi];
-//					if (phi < 0.0) {
-//						leftValue -= term * m_buffer0[xi - 1][yi];
-//						diagValue += term;
-//					}
-//					else {
-//						Scalar frac = MathUtils::FractionInRegion(centerPhi, phi);
-//						diagValue += term / frac;
-//					}
-//				}
-//
-//				// top
-//				if (m_grid.liquidWy[xi][yi + 1] > 0.0) {
-//					Scalar term = m_grid.liquidWy[xi][yi + 1] * dt / (liquidDensity * m_grid.dx.y() * m_grid.dx.y());
-//					Scalar phi = m_grid.liquidPhi[xi][yi + 1];
-//					if (phi < 0.0) {
-//						topValue -= term * m_buffer0[xi][yi + 1];
-//						diagValue += term;
-//					}
-//					else {
-//						Scalar frac = MathUtils::FractionInRegion(centerPhi, phi);
-//						diagValue += term / frac;
-//					}
-//				}
-//
-//				// bottom
-//				if (m_grid.liquidWy[xi][yi] > 0.0) {
-//					Scalar term = m_grid.liquidWy[xi][yi] * dt / (liquidDensity * m_grid.dx.y() * m_grid.dx.y());
-//					Scalar phi = m_grid.liquidPhi[xi][yi - 1];
-//					if (phi < 0.0) {
-//						botValue -= term * m_buffer0[xi][yi - 1];
-//						diagValue += term;
-//					}
-//					else {
-//						Scalar frac = MathUtils::FractionInRegion(centerPhi, phi);
-//						diagValue += term / frac;
-//					}
-//				}
-//
-//				if (!MathUtils::IsSmall(std::abs(diagValue))) {
-//					m_buffer1[xi][yi] = (1.0 - m_relaxFactor) * m_buffer0[xi][yi] + m_relaxFactor * (m_rhs[xi][yi] - (leftValue + rightValue + topValue + botValue)) / diagValue;
-//				}
-//			}
-//		}
-//		std::swap(m_buffer0, m_buffer1);
-//	}
-//
-//	for (Integer xi = 0; xi < m_grid.dimension.x(); ++xi) {
-//		for (Integer yi = 0; yi < m_grid.dimension.y(); ++yi) {
-//			m_grid.pressure[xi][yi] = m_buffer0[xi][yi];
-//		}
-//	}
-//}
-//
-//#pragma endregion
-//#pragma region Jacobi Solver 3D
-//
-//#pragma endregion
-//
-//#pragma endregion
-
+#include "SceneParameter.h"
 
 #pragma region Conjugate Gradient Solver
 template class CGSolver<2>;
@@ -123,10 +8,38 @@ template class CGSolver<3>;
 
 #pragma region Conjugate Gradient Solver 2D
 
+CGSolver<2>::CGSolver(Grid<2>& grid, const SolverParameter<2>& params)
+	: m_grid(grid), m_maxIteration(params.maxIterations), m_tolerance(params.tolerance),
+	m_smoothFactor(params.smoothingFactor), m_type(params.preconditionerType),
+	m_maxLevel(max(1, params.numLevel)), m_numPreSmooth(params.numPreSmooth),
+	m_numPostSmooth(params.numPostSmooth), m_numFinalSmooth(params.numFinalSmooth),
+	m_rhs(m_grid.dimension), m_p(m_grid.dimension), m_x(m_grid.dimension) {
+
+	m_maxLevel = (m_type != PrecondType::Multigrid) ? 1 : m_maxLevel;
+	m_r.resize(m_maxLevel);
+	m_z.resize(m_maxLevel);
+	m_Adiag.resize(m_maxLevel);
+	m_Acoef.resize(m_maxLevel);
+
+	for (Integer level = 0; level < m_maxLevel; ++level) {
+		Integer width = m_grid.dimension.x() / (1 << level);
+		Integer height = m_grid.dimension.y() / (1 << level);
+		m_r[level].Resize(width, height);
+		m_z[level].Resize(width, height);
+		m_Adiag[level].Resize(width, height);
+		m_Acoef[level].Resize(width, height);
+	}
+
+	m_oldRZ = 0.0;
+	m_newRZ = 0.0;
+	m_alpha = 0.0;
+	m_beta = 0.0;
+}
+
 CGSolver<2>::CGSolver(Grid<2>& grid, Integer maxIteration,
 					  Scalar tolerance, PrecondType type,
-					  Integer maxLevel, Integer numPreSmooth, Integer numPostSmooth, Integer numFinalSmooth)
-	: m_grid(grid), m_maxIteration(maxIteration), m_tolerance(tolerance), m_type(type),
+					  Integer maxLevel, Integer numPreSmooth, Integer numPostSmooth, Integer numFinalSmooth, Scalar smoothFactor)
+	: m_grid(grid), m_maxIteration(maxIteration), m_tolerance(tolerance), m_smoothFactor(smoothFactor), m_type(type),
 	  m_maxLevel(max(1, maxLevel)), m_numPreSmooth(numPreSmooth), m_numPostSmooth(numPostSmooth), m_numFinalSmooth(numFinalSmooth),
 	  m_rhs(m_grid.dimension), m_p(m_grid.dimension), m_x(m_grid.dimension) {
 
@@ -408,7 +321,7 @@ void CGSolver<2>::Smooth(Integer level, Integer phase) {
 			if (((xi + yi) & 0b1) == phase) {
 				if (!MathUtils::IsSmall(m_Adiag[level](xi, yi))) {
 					Scalar term = (m_r[level](xi, yi) - GetAx(m_z[level], xi, yi, level)) / m_Adiag[level](xi, yi);
-					m_z[level](xi, yi) = 0.5 * m_z[level](xi, yi) + 0.5 * term;
+					m_z[level](xi, yi) = (1. - m_smoothFactor) * m_z[level](xi, yi) + m_smoothFactor * term;
 				}
 			}
 		}
@@ -506,10 +419,37 @@ void CGSolver<2>::Solve(const Scalar& liquidDensity, const Scalar& dt) {
 
 #pragma region Conjugate Gradient Solver 3D
 
+CGSolver<3>::CGSolver(Grid<3>& grid, const SolverParameter<3>& params)
+	: m_grid(grid), m_maxIteration(params.maxIterations), m_tolerance(params.tolerance),
+	m_smoothFactor(params.smoothingFactor), m_type(params.preconditionerType),
+	m_maxLevel(max(1, params.numLevel)), m_numPreSmooth(params.numPreSmooth),
+	m_numPostSmooth(params.numPostSmooth), m_numFinalSmooth(params.numFinalSmooth),
+	m_rhs(m_grid.dimension), m_p(m_grid.dimension), m_x(m_grid.dimension) {
+
+	m_maxLevel = (m_type != PrecondType::Multigrid) ? 1 : m_maxLevel;
+	m_r.resize(m_maxLevel);
+	m_z.resize(m_maxLevel);
+	m_Adiag.resize(m_maxLevel);
+	m_Acoef.resize(m_maxLevel);
+
+	for (Integer level = 0; level < m_maxLevel; ++level) {
+		Vector3i dimension = m_grid.dimension / (1 << level);
+		m_r[level].Resize(dimension);
+		m_z[level].Resize(dimension);
+		m_Adiag[level].Resize(dimension);
+		m_Acoef[level].Resize(dimension);
+	}
+
+	m_oldRZ = 0.0;
+	m_newRZ = 0.0;
+	m_alpha = 0.0;
+	m_beta = 0.0;
+}
+
 CGSolver<3>::CGSolver(Grid<3>& grid, Integer maxIteration,
 	Scalar tolerance, PrecondType type,
-	Integer maxLevel, Integer numPreSmooth, Integer numPostSmooth, Integer numFinalSmooth)
-	: m_grid(grid), m_maxIteration(maxIteration), m_tolerance(tolerance), m_type(type),
+	Integer maxLevel, Integer numPreSmooth, Integer numPostSmooth, Integer numFinalSmooth, Scalar smoothFactor)
+	: m_grid(grid), m_maxIteration(maxIteration), m_tolerance(tolerance), m_smoothFactor(smoothFactor), m_type(type),
 	m_rhs(m_grid.dimension), m_p(m_grid.dimension), m_x(m_grid.dimension),
 	m_maxLevel(max(1, maxLevel)), m_numPreSmooth(numPreSmooth), m_numPostSmooth(numPostSmooth), m_numFinalSmooth(numFinalSmooth) {
 
@@ -888,7 +828,7 @@ void CGSolver<3>::Smooth(Integer level, Integer phase) {
 				if (((xi + yi + zi) & 0b1) == phase) {
 					if (!MathUtils::IsSmall(m_Adiag[level](xi, yi, zi))) {
 						Scalar term = (m_r[level](xi, yi, zi) - GetAx(m_z[level], xi, yi, zi, level)) / m_Adiag[level](xi, yi, zi);
-						m_z[level](xi, yi, zi) = 0.35 * m_z[level](xi, yi, zi) + 0.65 * term;
+						m_z[level](xi, yi, zi) = (1. - m_smoothFactor) * m_z[level](xi, yi, zi) + m_smoothFactor * term;
 					}
 				}
 			}

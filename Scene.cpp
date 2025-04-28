@@ -1,44 +1,47 @@
 #include "Scene.h"
 
 #include "LiquidModel.h"
+#include "HairModel.h"
+#include "Renderer.h"
 
-template class Scene<2>;
+//template class Scene<2>;
 template class Scene<3>;
 
-#pragma region Scene 2D
-template <>
-Scene<2>::Scene(SceneParameter<2> params)
-	: m_params(params), m_model(*this) {
-	m_boundary.SetChild(new RectBoundary<2>(Vector2::Zero(), Vector2::Ones() * 0.9, true));
-	m_model.SetBoundary(&m_boundary);
-	
-#ifdef _DEBUG
-	ASSERT_MSG(std::abs(m_boundary.Compute(Vector2(0.9, 0.0))) < EPSILON, "Get phi=" + std::to_string(m_boundary.Compute(Vector2(0.9, 0.0))));
-	ASSERT_MSG(std::abs(m_boundary.Compute(Vector2(0.0, 0.9))) < EPSILON, "Get phi=" + std::to_string(m_boundary.Compute(Vector2(0.0, 0.9))));
-	ASSERT_MSG(m_boundary.Compute(Vector2(0.0, 0.0)) > 0.0, "Get phi=" + std::to_string(m_boundary.Compute(Vector2(0.0, 0.0))));
-	ASSERT_MSG(m_boundary.Compute(Vector2(1.0, 0.0)) < 1.0, "Get phi=" + std::to_string(m_boundary.Compute(Vector2(1.0, 0.0))));
-#endif
+#pragma region Scene
 
+template <int DIM>
+Scene<DIM>::Scene(const std::string& configFile)
+	: m_solverParams(configFile), m_sceneParams(configFile), m_liquidParams(configFile), m_hairParams(configFile), 
+	m_liquidModel(std::make_unique<LiquidModel<DIM>>(*this)), 
+	m_hairModel(std::make_unique<HairModel<DIM>>(*this)) {
+
+	m_boundary.SetChild(new RectBoundary<DIM>(VectorX<DIM>::Zero(), VectorX<DIM>::Ones() * 0.9, true));
+	m_liquidModel->SetBoundary(&m_boundary);
 }
 
+template <int DIM>
+Scene<DIM>::~Scene() = default;
 
-#pragma endregion
+template <int DIM>
+void Scene<DIM>::PlaySimulation(const std::string& filename) {
+    Renderer& rend = Renderer::GetInstance();
+    std::ifstream reader(filename);
+    if (!reader.is_open()) {
+        throw std::runtime_error("Failed to open file " + filename);
+    }
 
-#pragma region Scene 3D
-template <>
-Scene<3>::Scene(SceneParameter<3> params)
-	: m_params(params), m_model(*this) {
-	m_boundary.SetChild(new RectBoundary<3>(Vector3::Zero(), Vector3::Ones() * 0.9, true));
-	m_model.SetBoundary(&m_boundary);
+    std::string line;
+    std::getline(reader, line);
+    m_liquidModel->GetParticleSystem().Resize(std::stoul(line));
 
-#ifdef _DEBUG
-	ASSERT_MSG(std::abs(m_boundary.Compute(Vector3(0.9, 0.0, 0.9))) < EPSILON, "Get phi=" + std::to_string(m_boundary.Compute(Vector3(0.9, 0.0, 0.9))));
-	ASSERT_MSG(std::abs(m_boundary.Compute(Vector3(0.0, 0.9, 0.0))) < EPSILON, "Get phi=" + std::to_string(m_boundary.Compute(Vector3(0.0, 0.9, 0.0))));
-	ASSERT_MSG(m_boundary.Compute(Vector3(0.0, 0.0, 0.0)) > 0.0, "Get phi=" + std::to_string(m_boundary.Compute(Vector3(0.0, 0.0, 0.0))));
-	ASSERT_MSG(m_boundary.Compute(Vector3(1.0, 0.0, 0.0)) < 1.0, "Get phi=" + std::to_string(m_boundary.Compute(Vector3(1.0, 0.0, 0.0))));
-#endif
+    while (std::getline(reader, line)) {
+        rend.ClearScreen();
+        m_liquidModel->GetParticleSystem().LoadFromLine(line);
+        m_liquidModel->Render();
+        rend.LoadScreen();
+    }
 
+    reader.close();
 }
-
 
 #pragma endregion

@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <cstddef>
 #include <random>
+#include <memory>
 
 using Scalar = float;
 using Integer = int;
@@ -84,10 +85,6 @@ using MatrixXi = Eigen::Matrix<Integer, N, M>;
 template <int N, int M>
 using MatrixX = Eigen::Matrix<Scalar, N, M>;
 
-using Matrix2s = std::vector<Matrix2>;
-using Matrix3s = std::vector<Matrix3>;
-using Matrix4s = std::vector<Matrix4>;
-
 template <int N, int M>
 using MatrixXs = std::vector<MatrixX<N, M>>;
 #pragma endregion
@@ -95,10 +92,15 @@ using MatrixXs = std::vector<MatrixX<N, M>>;
 #pragma region Constant
 constexpr Scalar EPSILON = 1e-8;
 constexpr Scalar PI = 3.1415926535897932;
+constexpr Scalar PI_4 = 3.1415926535897932 / 4.0;
+constexpr Scalar INF = std::numeric_limits<Scalar>::infinity();
+
 #pragma endregion
 
 #pragma region HPC
 #include <omp.h>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 #pragma endregion
 

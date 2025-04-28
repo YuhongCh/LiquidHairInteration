@@ -1,9 +1,6 @@
 #pragma once
 
 #include "Definition.h"
-
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "Color.h"
 
 template <int DIM>

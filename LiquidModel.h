@@ -13,6 +13,8 @@ class LiquidModel {
 public:
 	LiquidModel(const Scene<DIM>& scene);
 
+	~LiquidModel();
+
 	void Init();
 
 	void PreStep(const Scalar& dt);
@@ -54,7 +56,9 @@ public:
 
 	inline void SetBoundary(BaseBoundary<DIM>* boundary) { m_boundary = boundary; }
 
-	inline const ParticleSystem<DIM>& GetParticleSystem() const { return m_ps; }
+	inline ParticleSystem<DIM>& GetParticleSystem() { return m_ps; }
+
+	void Render() const;
 
 private:
 
@@ -65,7 +69,14 @@ private:
 	const Scene<DIM>& m_scene;
 	CGSolver<DIM> m_solver;
 
-	Integer m_correctStep;
 	Integer m_correctCycle;
+	Integer m_correctStep;
+
+	GLuint m_renderProgram;
+	GLuint m_VAO, m_VBO;
+	GLint m_minCoordLoc;
+	GLint m_maxCoordLoc;
+	GLint m_pointSizeLoc;
+	GLint m_pixelColorLoc;
 };
 

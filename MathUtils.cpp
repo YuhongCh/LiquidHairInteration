@@ -1,32 +1,6 @@
 #include "MathUtils.h"
 
 
-Scalar MathUtils::Lerp(const Scalar& val0, const Scalar& val1, Scalar factor) {
-	return val0 + MathUtils::Clamp(factor, 0.0, 1.0) * (val1 - val0);
-}
-
-Scalar MathUtils::Bilerp(const Scalar& val00, const Scalar& val10, const Scalar& val01, const Scalar& val11, Scalar factor1, Scalar factor2) {
-	Scalar val0 = MathUtils::Lerp(val00, val10, factor1);
-	Scalar val1 = MathUtils::Lerp(val01, val11, factor1);
-	return MathUtils::Lerp(
-		MathUtils::Lerp(val00, val10, factor1),
-		MathUtils::Lerp(val01, val11, factor1),
-		MathUtils::Clamp(factor2, 0.0, 1.0)
-	);
-}
-
-Scalar MathUtils::Trilerp(const Scalar& val000, const Scalar& val100, const Scalar& val010,
-	const Scalar& val110, const Scalar& val001, const Scalar& val101,
-	const Scalar& val011, const Scalar& val111,
-	Scalar factor1, Scalar factor2, Scalar factor3) {
-
-	return MathUtils::Lerp(
-		MathUtils::Bilerp(val000, val100, val010, val110, factor1, factor2),
-		MathUtils::Bilerp(val001, val101, val011, val111, factor1, factor2),
-		MathUtils::Clamp(factor3, 0.0, 1.0)
-	);
-}
-
 Vector3f MathUtils::Rotate(const Vector3f& vec, const Vector3f& axis, Scalar theta) {
 	Vector3f ans = vec;
 	if (!MathUtils::IsSmall(theta)) {
@@ -124,3 +98,23 @@ Scalar MathUtils::ComputePolygonArea(const std::vector<Vector2>& points) {
 	}
 	return std::abs(area) * 0.5;
 }
+
+template <>
+VectorX<3> MathUtils::ComputeNormal(const VectorX<3>& vec) {
+	VectorX<3> ans(std::rand() / (Scalar)RAND_MAX, -1.0, 1.0);
+	if (std::abs(vec.dot(ans)) > EPSILON) ans = ans.cross(vec);
+	return ans.normalized();
+} template VectorX<3> MathUtils::ComputeNormal(const VectorX<3>&);
+
+template <>
+static VectorX<3> MathUtils::ParallelTransport(const VectorX<3>& prevFrame, const VectorX<3>& prevTangent, const VectorX<3>& currTangent) {
+	VectorX<3> ans = prevFrame;
+	VectorX<3> b = prevTangent.cross(currTangent);
+	if (b.norm() > EPSILON) {
+		b.normalize();
+		VectorX<3> d0 = (prevTangent.cross(b)).normalized();
+		VectorX<3> d1 = (currTangent.cross(b)).normalized();
+		ans = prevFrame.dot(prevTangent) * currTangent + prevFrame.dot(d0) * d1 + prevFrame.dot(b) * b;
+	}
+	return ans;
+}template VectorX<3> MathUtils::ParallelTransport(const VectorX<3>&, const VectorX<3>&, const VectorX<3>&);

@@ -4,16 +4,20 @@ template class ParticleSystem<2>;
 template class ParticleSystem<3>;
 
 template<int DIM>
-ParticleSystem<DIM>::ParticleSystem(int numParticles, const Scalar& radius)
-	: m_size(numParticles), m_defaultRadius(2 * radius){
-
-	m_particle.resize(numParticles);
-}
+ParticleSystem<DIM>::ParticleSystem(Integer numParticles, const Scalar& radius)
+	: m_defaultRadius(2 * radius), m_size(numParticles){}
 
 template<int DIM>
 void ParticleSystem<DIM>::Resize(Integer size) {
 	m_particle.resize(size);
+
+	#pragma omp simd
+	for (Integer index = m_size; index < size; ++index) {
+		SetRadius(index, m_defaultRadius);
+	}
+
 	m_size = size;
+
 }
 
 template<>
@@ -21,7 +25,7 @@ void ParticleSystem<2>::SpawnParticles(const VectorX<2>& minCoord, const VectorX
 	Scalar interval = 0.5 * m_defaultRadius;
 	Integer dx = (maxCoord.x() - minCoord.x()) / interval;
 	Integer dy = (maxCoord.y() - minCoord.y()) / interval;
-	Resize(dx * dy);
+	Resize(min(dx * dy, m_size));
 
 #ifdef _DEBUG
 	std::cout << "Spawned " << m_size << " particles" << std::endl;
@@ -30,6 +34,7 @@ void ParticleSystem<2>::SpawnParticles(const VectorX<2>& minCoord, const VectorX
 	for (Integer xi = 0; xi < dx; ++xi) {
 		for (Integer yi = 0; yi < dy; ++yi) {
 			Integer index = xi * dy + yi;
+			if (index >= m_size) break;
 			SetPosition(index, Vector2(xi, yi) * interval + minCoord);
 			SetRadius(index, m_defaultRadius);
 		}
@@ -40,7 +45,7 @@ template<>
 void ParticleSystem<3>::SpawnParticles(const VectorX<3>& minCoord, const VectorX<3>& maxCoord) {
 	Scalar interval = 0.5 * m_defaultRadius;
 	Vector3i dx = ((maxCoord - minCoord) / interval).cast<Integer>();
-	Resize(dx.x() * dx.y() * dx.z());
+	Resize(min(m_size, dx.x() * dx.y() * dx.z()));
 
 #ifdef _DEBUG
 	std::cout << "Spawned " << m_size << " particles" << std::endl;
@@ -50,6 +55,7 @@ void ParticleSystem<3>::SpawnParticles(const VectorX<3>& minCoord, const VectorX
 		for (Integer yi = 0; yi < dx.y(); ++yi) {
 			for (Integer zi = 0; zi < dx.z(); ++zi) {
 				Integer index = xi * dx.y() * dx.z() + yi * dx.z() + zi;
+				if (index >= m_size) break;
 				SetPosition(index, Vector3(xi, yi, zi) * interval + minCoord);
 				SetRadius(index, m_defaultRadius);
 			}
@@ -82,13 +88,11 @@ void ParticleSystem<DIM>::LoadFromLine(const std::string& line) {
 	std::string token;
 	std::istringstream ss(line);
 
-	size_t numParticles = std::stoul(token);
-	if (numParticles != m_size) Resize(numParticles);
-
 	std::getline(ss, token, ',');
-	for (size_t i = 0; i < numParticles; ++i) {
+	for (size_t i = 0; i < m_size; ++i) {
 		for (Integer di = 0; di < DIM; ++di) {
 			if (!std::getline(ss, token, ',')) {
+				continue;
 				throw std::runtime_error("Failed to recognize line " + line);
 			}
 			m_particle[i].position[di] = std::stof(token);

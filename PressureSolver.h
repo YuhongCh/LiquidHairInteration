@@ -3,43 +3,8 @@
 #include "Grid.h"
 #include "Array.h"
 
-
-//#pragma region Jacobi Solver
-//template <int DIM>
-//class JacobiSolver;
-//
-//#pragma region Jacobi Solver 2D
-//template <>
-//class JacobiSolver<2> {
-//public:
-//	JacobiSolver(Grid<2>& grid, Integer maxIteration = 500, const Scalar& relaxFactor = 0.65)
-//		: m_grid(grid), m_maxIteration(maxIteration), m_relaxFactor(relaxFactor) {
-//		m_buffer0 = std::vector<std::vector<Scalar>>(m_grid.dimension.x(), std::vector<Scalar>(m_grid.dimension.y()));
-//		m_buffer1 = std::vector<std::vector<Scalar>>(m_grid.dimension.x(), std::vector<Scalar>(m_grid.dimension.y()));
-//		m_rhs = std::vector<std::vector<Scalar>>(m_grid.dimension.x(), std::vector<Scalar>(m_grid.dimension.y()));
-//	}
-//
-//	void BuildRHS();
-//
-//	void Solve(const Scalar& liquidDensity, const Scalar& dt, bool warmStart = true);
-//
-//private:
-//	Grid<2>& m_grid;
-//	std::vector<std::vector<Scalar>> m_buffer0;
-//	std::vector<std::vector<Scalar>> m_buffer1;
-//	std::vector<std::vector<Scalar>> m_rhs;
-//	Integer m_maxIteration;
-//	Scalar m_relaxFactor;
-//
-//};
-//#pragma endregion
-//
-//#pragma region Jacobi Solver 3D
-//
-//#pragma endregion
-//
-//#pragma endregion
-
+template <int DIM>
+class SolverParameter;
 
 #pragma region Conjugate Gradient Solver
 template <int DIM>
@@ -56,7 +21,9 @@ public:
 public:
 	CGSolver(Grid<2>& grid, Integer maxIteration = 500,
 		Scalar tolerance = 1e-5, PrecondType type = PrecondType::Jacobi,
-		Integer maxLevel = 1, Integer numPreSmooth = 5, Integer numPostSmooth = 5, Integer numFinalSmooth = 10);
+		Integer maxLevel = 1, Integer numPreSmooth = 5, Integer numPostSmooth = 5, Integer numFinalSmooth = 10, Scalar smoothFactor = 0.5);
+
+	CGSolver(Grid<2>& grid, const SolverParameter<2>& params);
 
 	void Init();
 
@@ -94,6 +61,7 @@ private:
 	std::vector<Array2<Vector4>> m_Acoef; // right, left, top, bottom
 
 	Integer m_maxIteration;
+	Scalar m_smoothFactor;
 	Scalar m_tolerance;
 	Scalar m_oldRZ;
 	Scalar m_newRZ;
@@ -120,7 +88,9 @@ public:
 public:
 	CGSolver(Grid<3>& grid, Integer maxIteration = 500,
 		Scalar tolerance = 1e-5, PrecondType type = PrecondType::Jacobi,
-		Integer maxLevel = 1, Integer numPreSmooth = 5, Integer numPostSmooth = 5, Integer numFinalSmooth = 10);
+		Integer maxLevel = 1, Integer numPreSmooth = 5, Integer numPostSmooth = 5, Integer numFinalSmooth = 10, Scalar smoothFactor = 0.5);
+
+	CGSolver(Grid<3>& grid, const SolverParameter<3>& params);
 
 	void Init();
 
@@ -159,6 +129,7 @@ private:
 	std::vector<Array3<VectorX<6>>> m_Acoef; // right, left, top, bottom, front, back
 
 	Integer m_maxIteration;
+	Scalar m_smoothFactor;
 	Scalar m_tolerance;
 	Scalar m_oldRZ;
 	Scalar m_newRZ;
